@@ -187,16 +187,15 @@ class AuditLog(BaseModel):
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
-    # Truncate password to 72 bytes if necessary for bcrypt
-    if len(plain_password) > 72:
-        plain_password = plain_password[:72]
-    return pwd_context.verify(plain_password, hashed_password)
+    # Using SHA-256 with salt for password verification
+    return hmac.compare_digest(
+        hashlib.sha256(plain_password.encode() + SECRET_KEY.encode()).hexdigest(),
+        hashed_password
+    )
 
 def get_password_hash(password):
-    # Truncate password to 72 bytes if necessary for bcrypt
-    if len(password) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+    # Using SHA-256 with salt for password hashing
+    return hashlib.sha256(password.encode() + SECRET_KEY.encode()).hexdigest()
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
