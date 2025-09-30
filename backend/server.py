@@ -26,9 +26,6 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Security
-import hashlib
-import hmac
-
 security = HTTPBearer()
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
