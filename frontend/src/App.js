@@ -79,10 +79,15 @@ const useAuth = () => {
 
 // Login Component
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already logged in
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,6 +99,8 @@ const Login = () => {
     if (!result.success) {
       setError(result.error);
     }
+    // If login is successful, the user state will update and component will re-render
+    // The redirect will happen automatically due to the user check above
     setIsLoading(false);
   };
 
