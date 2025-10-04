@@ -652,14 +652,65 @@ async def get_users(current_user: User = Depends(get_current_user)):
     users = await db.users.find().to_list(1000)
     return [User(**user) for user in users]
 
-# Mutual Aid Requests endpoints
-@api_router.get("/mutual-aid/requests", response_model=List[AidRequest])
-async def get_aid_requests(current_user: User = Depends(get_current_user)):
+# Notifications endpoints
+@api_router.get("/notifications", response_model=List[Notification])
+async def get_notifications(skip: int = 0, limit: int = 100, current_user: User = Depends(get_current_user)):
+    notifications = await db.notifications.find({"user_id": current_user.id}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return [Notification(**notification) for notification in notifications]
+
+@api_router.post("/notifications", response_model=Notification)
+async def create_notification(notification: NotificationCreate, current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPERVISOR]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    requests = await db.aid_requests.find().sort("requested_at", -1).to_list(1000)
-    return [AidRequest(**request) for request in requests]
+    notification_obj = Notification(**notification.dict())
+    await db.notifications.insert_one(notification_obj.dict())
+    await log_action(current_user.id, "CREATE_NOTIFICATION", "Notification", notification_obj.id)
+    
+    return notification_obj
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_as_read(notification_id: str, current_user: User = Depends(get_current_user)):
+    notification = await db.notifications.find_one({"id": notification_id, "user_id": current_user.id})
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    await db.notifications.update_one(
+        {"id": notification_id},
+        {"$set": {"status": NotificationStatus.LEIDA, "read_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Notification marked as read"}
+
+@api_router.get("/notifications/unread-count")
+async def get_unread_notifications_count(current_user: User = Depends(get_current_user)):
+    count = await db.notifications.count_documents({"user_id": current_user.id, "status": NotificationStatus.NO_LEIDA})
+    return {"unread_count": count}
+
+# Broadcast notification to all users (Admin only)
+@api_router.post("/notifications/broadcast")
+async def broadcast_notification(title: str, message: str, notification_type: NotificationType, current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Get all users
+    users = await db.users.find().to_list(1000)
+    
+    notifications = []
+    for user in users:
+        notification = Notification(
+            user_id=user['id'],
+            title=title,
+            message=message,
+            notification_type=notification_type
+        )
+        notifications.append(notification.dict())
+    
+    if notifications:
+        await db.notifications.insert_many(notifications)
+        await log_action(current_user.id, "BROADCAST_NOTIFICATION", "Notification", "ALL_USERS")
+    
+    return {"message": f"Notification sent to {len(notifications)} users"}
 
 # Basic endpoints
 @api_router.get("/")
