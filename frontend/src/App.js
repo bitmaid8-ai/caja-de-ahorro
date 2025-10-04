@@ -1142,8 +1142,8 @@ const MutualAid = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border">
-        <div className=\"p-6 border-b\">
-          <h3 className=\"text-lg font-medium text-gray-900\">Mis Notificaciones</h3>
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Mis Notificaciones</h3>
         </div>
         
         <div className=\"divide-y divide-gray-200\">
