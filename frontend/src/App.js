@@ -1023,8 +1023,323 @@ const Transactions = () => {
   );
 };
 
-// Mutual Aid Component
-const MutualAid = () => {
+// Notifications Component
+const Notifications = () => {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showBroadcastForm, setShowBroadcastForm] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [formData, setFormData] = useState({
+    user_id: '',
+    title: '',
+    message: '',
+    notification_type: 'SISTEMA'
+  });
+  const [broadcastData, setBroadcastData] = useState({
+    title: '',
+    message: '',
+    notification_type: 'SISTEMA'
+  });
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+    if (user?.role === 'ADMIN') {
+      fetchUsers();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await axios.get('/notifications');
+      setNotifications(response.data);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get('/notifications/unread-count');
+      setUnreadCount(response.data.unread_count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/notifications', formData);
+      setShowForm(false);
+      setFormData({
+        user_id: '',
+        title: '',
+        message: '',
+        notification_type: 'SISTEMA'
+      });
+      fetchNotifications();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al crear notificación');
+    }
+  };
+
+  const handleBroadcast = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/notifications/broadcast', null, {
+        params: broadcastData
+      });
+      setShowBroadcastForm(false);
+      setBroadcastData({
+        title: '',
+        message: '',
+        notification_type: 'SISTEMA'
+      });
+      alert('Notificación enviada a todos los usuarios');
+      fetchNotifications();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al enviar notificación');
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await axios.put(`/notifications/${notificationId}/read`);
+      fetchNotifications();
+      fetchUnreadCount();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  return (
+    <div className=\"p-6\">
+      <div className=\"flex justify-between items-center mb-6\">
+        <div>
+          <h1 className=\"text-3xl font-bold text-gray-900\">Notificaciones</h1>
+          {unreadCount > 0 && (
+            <p className=\"text-sm text-orange-600 mt-1\">
+              Tienes {unreadCount} notificación{unreadCount > 1 ? 'es' : ''} sin leer
+            </p>
+          )}
+        </div>
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERVISOR') && (
+          <div className=\"flex gap-2\">
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className=\"bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200\"
+              data-testid=\"add-notification-btn\"
+            >
+              Nueva Notificación
+            </button>
+            {user?.role === 'ADMIN' && (
+              <button
+                onClick={() => setShowBroadcastForm(!showBroadcastForm)}
+                className=\"bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors duration-200\"
+                data-testid=\"broadcast-notification-btn\"
+              >
+                Enviar a Todos
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className=\"bg-white p-6 rounded-xl shadow-sm border mb-6\" data-testid=\"notification-form\">
+          <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Nueva Notificación</h2>
+          <form onSubmit={handleSubmit} className=\"grid grid-cols-1 md:grid-cols-2 gap-4\">
+            <div>
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Usuario Destinatario</label>
+              <select
+                required
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\"
+                value={formData.user_id}
+                onChange={(e) => setFormData({...formData, user_id: e.target.value})}
+              >
+                <option value=\"\">Seleccionar usuario...</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name} (@{user.username})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Tipo</label>
+              <select
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\"
+                value={formData.notification_type}
+                onChange={(e) => setFormData({...formData, notification_type: e.target.value})}
+              >
+                <option value=\"SISTEMA\">Sistema</option>
+                <option value=\"TRANSACCION\">Transacción</option>
+                <option value=\"ALERTA\">Alerta</option>
+                <option value=\"CUENTA\">Cuenta</option>
+                <option value=\"SOCIO\">Socio</option>
+              </select>
+            </div>
+            
+            <div className=\"md:col-span-2\">
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Título</label>
+              <input
+                type=\"text\"
+                required
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\"
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+            
+            <div className=\"md:col-span-2\">
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Mensaje</label>
+              <textarea
+                required
+                rows={3}
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\"
+                value={formData.message}
+                onChange={(e) => setFormData({...formData, message: e.target.value})}
+              />
+            </div>
+            
+            <div className=\"md:col-span-2\">
+              <button
+                type=\"submit\"
+                className=\"bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors duration-200\"
+              >
+                Enviar Notificación
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showBroadcastForm && (
+        <div className=\"bg-white p-6 rounded-xl shadow-sm border mb-6\" data-testid=\"broadcast-form\">
+          <h2 className=\"text-xl font-bold text-gray-900 mb-4\">Enviar Notificación a Todos los Usuarios</h2>
+          <form onSubmit={handleBroadcast} className=\"grid grid-cols-1 gap-4\">
+            <div>
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Tipo</label>
+              <select
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent\"
+                value={broadcastData.notification_type}
+                onChange={(e) => setBroadcastData({...broadcastData, notification_type: e.target.value})}
+              >
+                <option value=\"SISTEMA\">Sistema</option>
+                <option value=\"ALERTA\">Alerta</option>
+                <option value=\"TRANSACCION\">Transacción</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Título</label>
+              <input
+                type=\"text\"
+                required
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent\"
+                value={broadcastData.title}
+                onChange={(e) => setBroadcastData({...broadcastData, title: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <label className=\"block text-sm font-medium text-gray-700 mb-2\">Mensaje</label>
+              <textarea
+                required
+                rows={3}
+                className=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent\"
+                value={broadcastData.message}
+                onChange={(e) => setBroadcastData({...broadcastData, message: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <button
+                type=\"submit\"
+                className=\"bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg transition-colors duration-200\"
+              >
+                Enviar a Todos
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className=\"bg-white rounded-xl shadow-sm border\">
+        <div className=\"p-6 border-b\">
+          <h3 className=\"text-lg font-medium text-gray-900\">Mis Notificaciones</h3>
+        </div>
+        
+        <div className=\"divide-y divide-gray-200\">
+          {loading ? (
+            <div className=\"p-6 text-center text-gray-500\">Cargando notificaciones...</div>
+          ) : notifications.length === 0 ? (
+            <div className=\"p-6 text-center text-gray-500\">No hay notificaciones</div>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-6 hover:bg-gray-50 transition-colors duration-200 ${
+                  notification.status === 'NO_LEIDA' ? 'bg-blue-50 border-l-4 border-blue-400' : ''
+                }`}
+              >
+                <div className=\"flex items-start justify-between\">
+                  <div className=\"flex-1\">
+                    <div className=\"flex items-center gap-2 mb-2\">
+                      <h4 className=\"font-medium text-gray-900\">{notification.title}</h4>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        notification.notification_type === 'SISTEMA' ? 'bg-gray-100 text-gray-800' :
+                        notification.notification_type === 'ALERTA' ? 'bg-red-100 text-red-800' :
+                        notification.notification_type === 'TRANSACCION' ? 'bg-green-100 text-green-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {notification.notification_type}
+                      </span>
+                      {notification.status === 'NO_LEIDA' && (
+                        <span className=\"inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full\">
+                          Nuevo
+                        </span>
+                      )}
+                    </div>
+                    <p className=\"text-gray-700 mb-2\">{notification.message}</p>
+                    <p className=\"text-sm text-gray-500\">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {notification.status === 'NO_LEIDA' && (
+                    <button
+                      onClick={() => markAsRead(notification.id)}
+                      className=\"ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium\"
+                    >
+                      Marcar como leída
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
   const [aidRequests, setAidRequests] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
