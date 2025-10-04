@@ -67,6 +67,17 @@ class AidRequestStatus(str, Enum):
     APROBADA = "APROBADA"
     RECHAZADA = "RECHAZADA"
 
+class NotificationStatus(str, Enum):
+    NO_LEIDA = "NO_LEIDA"
+    LEIDA = "LEIDA"
+
+class NotificationType(str, Enum):
+    SISTEMA = "SISTEMA"
+    TRANSACCION = "TRANSACCION"
+    ALERTA = "ALERTA"
+    CUENTA = "CUENTA"
+    SOCIO = "SOCIO"
+
 # Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
