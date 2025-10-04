@@ -1023,8 +1023,8 @@ const Transactions = () => {
   );
 };
 
-// Notifications Component
-const Notifications = () => {
+// Mutual Aid Component
+const MutualAid = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
