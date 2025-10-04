@@ -1159,37 +1159,14 @@ const MutualAid = () => {
                   notification.status === 'NO_LEIDA' ? 'bg-blue-50 border-l-4 border-blue-400' : ''
                 }`}
               >
-                <div className=\"flex items-start justify-between\">
-                  <div className=\"flex-1\">
-                    <div className=\"flex items-center gap-2 mb-2\">
-                      <h4 className=\"font-medium text-gray-900\">{notification.title}</h4>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        notification.notification_type === 'SISTEMA' ? 'bg-gray-100 text-gray-800' :
-                        notification.notification_type === 'ALERTA' ? 'bg-red-100 text-red-800' :
-                        notification.notification_type === 'TRANSACCION' ? 'bg-green-100 text-green-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {notification.notification_type}
-                      </span>
-                      {notification.status === 'NO_LEIDA' && (
-                        <span className=\"inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full\">
-                          Nuevo
-                        </span>
-                      )}
-                    </div>
-                    <p className=\"text-gray-700 mb-2\">{notification.message}</p>
-                    <p className=\"text-sm text-gray-500\">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{notification.title}</h4>
+                    <p className="text-gray-700 mb-2">{notification.message}</p>
+                    <p className="text-sm text-gray-500">
                       {new Date(notification.created_at).toLocaleString()}
                     </p>
                   </div>
-                  {notification.status === 'NO_LEIDA' && (
-                    <button
-                      onClick={() => markAsRead(notification.id)}
-                      className=\"ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium\"
-                    >
-                      Marcar como leída
-                    </button>
-                  )}
                 </div>
               </div>
             ))
