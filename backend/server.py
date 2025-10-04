@@ -196,6 +196,22 @@ class AuditLog(BaseModel):
     ip_address: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class Notification(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    title: str
+    message: str
+    notification_type: NotificationType
+    status: NotificationStatus = NotificationStatus.NO_LEIDA
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    read_at: Optional[datetime] = None
+
+class NotificationCreate(BaseModel):
+    user_id: str
+    title: str
+    message: str
+    notification_type: NotificationType
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     # Using SHA-256 with salt for password verification
