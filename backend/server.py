@@ -29,7 +29,7 @@ db = client[os.environ['DB_NAME']]
 security = HTTPBearer()
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  # Extended to 8 hours
 
 # Create the main app
 app = FastAPI(title="Caja de Ahorro RDS API", version="1.0.0")
