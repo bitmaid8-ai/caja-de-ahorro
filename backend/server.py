@@ -610,6 +610,24 @@ async def get_audit_logs(skip: int = 0, limit: int = 100, current_user: User = D
     logs = await db.audit_logs.find().sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     return [AuditLog(**log) for log in logs]
 
+# Users endpoints
+@api_router.get("/users", response_model=List[User])
+async def get_users(current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    users = await db.users.find().to_list(1000)
+    return [User(**user) for user in users]
+
+# Mutual Aid Requests endpoints
+@api_router.get("/mutual-aid/requests", response_model=List[AidRequest])
+async def get_aid_requests(current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPERVISOR]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    requests = await db.aid_requests.find().sort("requested_at", -1).to_list(1000)
+    return [AidRequest(**request) for request in requests]
+
 # Basic endpoints
 @api_router.get("/")
 async def root():
