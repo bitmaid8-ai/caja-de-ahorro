@@ -1148,9 +1148,9 @@ const MutualAid = () => {
         
         <div className="divide-y divide-gray-200">
           {loading ? (
-            <div className=\"p-6 text-center text-gray-500\">Cargando notificaciones...</div>
+            <div className="p-6 text-center text-gray-500">Cargando notificaciones...</div>
           ) : notifications.length === 0 ? (
-            <div className=\"p-6 text-center text-gray-500\">No hay notificaciones</div>
+            <div className="p-6 text-center text-gray-500">No hay notificaciones</div>
           ) : (
             notifications.map((notification) => (
               <div
