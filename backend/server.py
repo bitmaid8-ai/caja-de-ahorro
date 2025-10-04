@@ -276,7 +276,9 @@ async def generate_account_number(account_type: AccountType):
         AccountType.CORRIENTE: "CC",
         AccountType.PROGRAMADO: "AP", 
         AccountType.NAVIDENO: "AN",
-        AccountType.ESCOLAR: "AE"
+        AccountType.ESCOLAR: "AE",
+        AccountType.AHORROS: "AH",
+        AccountType.FONDO_AYUDA_MUTUA: "FM"
     }
     count = await db.accounts.count_documents({"account_type": account_type}) + 1
     return f"{type_prefix[account_type]}-{count:08d}"
