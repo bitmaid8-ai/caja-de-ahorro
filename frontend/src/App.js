@@ -1176,6 +1176,9 @@ const MutualAid = () => {
     </div>
   );
 };
+
+// Mutual Aid Component  
+const MutualAid = () => {
   const [aidRequests, setAidRequests] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
