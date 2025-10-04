@@ -742,6 +742,11 @@ async def reject_aid_request(request_id: str, notes: Optional[str] = None, curre
     
     return {"message": "Aid request rejected"}
 
+# Basic endpoints
+@api_router.get("/")
+async def root():
+    return {"message": "Caja de Ahorro RDS API v1.0.0"}
+
 @api_router.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
