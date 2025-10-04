@@ -1146,7 +1146,7 @@ const MutualAid = () => {
           <h3 className="text-lg font-medium text-gray-900">Mis Notificaciones</h3>
         </div>
         
-        <div className=\"divide-y divide-gray-200\">
+        <div className="divide-y divide-gray-200">
           {loading ? (
             <div className=\"p-6 text-center text-gray-500\">Cargando notificaciones...</div>
           ) : notifications.length === 0 ? (
