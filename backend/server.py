@@ -52,6 +52,8 @@ class AccountType(str, Enum):
     PROGRAMADO = "PROGRAMADO"
     NAVIDENO = "NAVIDENO"
     ESCOLAR = "ESCOLAR"
+    AHORROS = "AHORROS"
+    FONDO_AYUDA_MUTUA = "FONDO_AYUDA_MUTUA"
 
 class TransactionType(str, Enum):
     DEPOSITO = "DEPOSITO"
