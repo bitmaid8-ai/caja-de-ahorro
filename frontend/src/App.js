@@ -99,8 +99,6 @@ const Login = () => {
     if (!result.success) {
       setError(result.error);
     }
-    // If login is successful, the user state will update and component will re-render
-    // The redirect will happen automatically due to the user check above
     setIsLoading(false);
   };
 
@@ -286,6 +284,7 @@ const Members = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState({
     identity_document: '',
     first_name: '',
@@ -312,27 +311,53 @@ const Members = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      identity_document: '',
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      address: '',
+      birth_date: ''
+    });
+    setEditingMember(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/members', {
+      const data = {
         ...formData,
         birth_date: new Date(formData.birth_date).toISOString()
-      });
+      };
+      
+      if (editingMember) {
+        await axios.put(`/members/${editingMember.id}`, data);
+      } else {
+        await axios.post('/members', data);
+      }
+      
       setShowForm(false);
-      setFormData({
-        identity_document: '',
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        address: '',
-        birth_date: ''
-      });
+      resetForm();
       fetchMembers();
     } catch (error) {
-      alert(error.response?.data?.detail || 'Error al crear socio');
+      alert(error.response?.data?.detail || 'Error al procesar socio');
     }
+  };
+
+  const handleEdit = (member) => {
+    setFormData({
+      identity_document: member.identity_document,
+      first_name: member.first_name,
+      last_name: member.last_name,
+      email: member.email,
+      phone: member.phone,
+      address: member.address,
+      birth_date: new Date(member.birth_date).toISOString().split('T')[0]
+    });
+    setEditingMember(member);
+    setShowForm(true);
   };
 
   return (
@@ -340,7 +365,14 @@ const Members = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Gestión de Socios</h1>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              resetForm();
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
           data-testid="add-member-btn"
         >
@@ -350,7 +382,9 @@ const Members = () => {
 
       {showForm && (
         <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="member-form">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Registrar Nuevo Socio</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            {editingMember ? 'Editar Socio' : 'Registrar Nuevo Socio'}
+          </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Cédula</label>
@@ -428,14 +462,26 @@ const Members = () => {
                 data-testid="member-address-input"
               />
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 flex gap-4">
               <button
                 type="submit"
                 className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
                 data-testid="submit-member-btn"
               >
-                Registrar Socio
+                {editingMember ? 'Actualizar' : 'Registrar'} Socio
               </button>
+              {editingMember && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    resetForm();
+                  }}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                >
+                  Cancelar
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -443,18 +489,14 @@ const Members = () => {
 
       <div className="bg-white rounded-xl shadow-sm border">
         <div className="p-6 border-b">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Buscar por número, cédula, nombre..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                data-testid="member-search-input"
-              />
-            </div>
-          </div>
+          <input
+            type="text"
+            placeholder="Buscar por número, cédula, nombre..."
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            data-testid="member-search-input"
+          />
         </div>
         
         <div className="overflow-x-auto">
@@ -466,7 +508,7 @@ const Members = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Registro</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -505,8 +547,1186 @@ const Members = () => {
                         {member.status}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(member)}
+                        className="text-emerald-600 hover:text-emerald-900 mr-4"
+                        data-testid={`edit-member-${member.id}`}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Accounts Component
+const Accounts = () => {
+  const [accounts, setAccounts] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    member_id: '',
+    account_type: 'CORRIENTE',
+    initial_deposit: 0
+  });
+
+  useEffect(() => {
+    fetchAccounts();
+    fetchMembers();
+  }, []);
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await axios.get('/accounts');
+      setAccounts(response.data);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const response = await axios.get('/members');
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/accounts', {
+        ...formData,
+        initial_deposit: parseFloat(formData.initial_deposit)
+      });
+      setShowForm(false);
+      setFormData({
+        member_id: '',
+        account_type: 'CORRIENTE',
+        initial_deposit: 0
+      });
+      fetchAccounts();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al crear cuenta');
+    }
+  };
+
+  const toggleAccountBlock = async (accountId, isBlocked) => {
+    try {
+      // This would need to be implemented in the backend
+      console.log(`Toggle account ${accountId} block status to ${!isBlocked}`);
+    } catch (error) {
+      console.error('Error toggling account status:', error);
+    }
+  };
+
+  const getMemberName = (memberId) => {
+    const member = members.find(m => m.id === memberId);
+    return member ? `${member.first_name} ${member.last_name}` : 'Desconocido';
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Cuentas de Ahorro</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+          data-testid="add-account-btn"
+        >
+          {showForm ? 'Cancelar' : 'Nueva Cuenta'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="account-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Abrir Nueva Cuenta</h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Socio</label>
+              <select
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.member_id}
+                onChange={(e) => setFormData({...formData, member_id: e.target.value})}
+                data-testid="account-member-select"
+              >
+                <option value="">Seleccionar socio...</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.member_number} - {member.first_name} {member.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Cuenta</label>
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.account_type}
+                onChange={(e) => setFormData({...formData, account_type: e.target.value})}
+                data-testid="account-type-select"
+              >
+                <option value="CORRIENTE">Corriente</option>
+                <option value="PROGRAMADO">Programado</option>
+                <option value="NAVIDENO">Navideño</option>
+                <option value="ESCOLAR">Escolar</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Depósito Inicial</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.initial_deposit}
+                onChange={(e) => setFormData({...formData, initial_deposit: e.target.value})}
+                data-testid="account-deposit-input"
+              />
+            </div>
+            
+            <div className="md:col-span-3">
+              <button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                data-testid="submit-account-btn"
+              >
+                Abrir Cuenta
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Lista de Cuentas</h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="accounts-table">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número de Cuenta</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Socio</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Cargando...</td>
+                </tr>
+              ) : accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No hay cuentas registradas</td>
+                </tr>
+              ) : (
+                accounts.map((account) => (
+                  <tr key={account.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {account.account_number}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(member.registration_date).toLocaleDateString()}
+                      {getMemberName(account.member_id)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {account.account_type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${account.balance.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        account.is_blocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {account.is_blocked ? 'Bloqueada' : 'Activa'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => toggleAccountBlock(account.id, account.is_blocked)}
+                        className={`mr-4 ${
+                          account.is_blocked ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'
+                        }`}
+                        data-testid={`toggle-account-${account.id}`}
+                      >
+                        {account.is_blocked ? 'Desbloquear' : 'Bloquear'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Transactions Component
+const Transactions = () => {
+  const [transactions, setTransactions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    account_id: '',
+    transaction_type: 'DEPOSITO',
+    amount: 0,
+    description: ''
+  });
+
+  useEffect(() => {
+    fetchTransactions();
+    fetchAccounts();
+    fetchMembers();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await axios.get('/transactions');
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await axios.get('/accounts');
+      setAccounts(response.data);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const response = await axios.get('/members');
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/transactions', {
+        ...formData,
+        amount: parseFloat(formData.amount)
+      });
+      setShowForm(false);
+      setFormData({
+        account_id: '',
+        transaction_type: 'DEPOSITO',
+        amount: 0,
+        description: ''
+      });
+      fetchTransactions();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al procesar transacción');
+    }
+  };
+
+  const getAccountInfo = (accountId) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return 'Desconocida';
+    
+    const member = members.find(m => m.id === account.member_id);
+    const memberName = member ? `${member.first_name} ${member.last_name}` : 'Desconocido';
+    
+    return `${account.account_number} - ${memberName}`;
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Transacciones</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+          data-testid="add-transaction-btn"
+        >
+          {showForm ? 'Cancelar' : 'Nueva Transacción'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="transaction-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Nueva Transacción</h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Cuenta</label>
+              <select
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={formData.account_id}
+                onChange={(e) => setFormData({...formData, account_id: e.target.value})}
+                data-testid="transaction-account-select"
+              >
+                <option value="">Seleccionar cuenta...</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountInfo(account.id)} - ${account.balance.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Transacción</label>
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={formData.transaction_type}
+                onChange={(e) => setFormData({...formData, transaction_type: e.target.value})}
+                data-testid="transaction-type-select"
+              >
+                <option value="DEPOSITO">Depósito</option>
+                <option value="RETIRO">Retiro</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Monto</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={formData.amount}
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                data-testid="transaction-amount-input"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+              <input
+                type="text"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                data-testid="transaction-description-input"
+                placeholder="Descripción opcional..."
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                data-testid="submit-transaction-btn"
+              >
+                Procesar Transacción
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Libro Diario</h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="transactions-table">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuenta</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Después</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Cargando...</td>
+                </tr>
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No hay transacciones registradas</td>
+                </tr>
+              ) : (
+                transactions.map((transaction) => (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {transaction.reference}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getAccountInfo(transaction.account_id)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        transaction.transaction_type === 'DEPOSITO' ? 'bg-green-100 text-green-800' : 
+                        transaction.transaction_type === 'RETIRO' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {transaction.transaction_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${transaction.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${transaction.balance_after.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(transaction.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Mutual Aid Component
+const MutualAid = () => {
+  const [aidRequests, setAidRequests] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [showContributionForm, setShowContributionForm] = useState(false);
+  const [requestFormData, setRequestFormData] = useState({
+    member_id: '',
+    amount: 0,
+    reason: ''
+  });
+  const [contributionFormData, setContributionFormData] = useState({
+    member_id: '',
+    amount: 0
+  });
+
+  useEffect(() => {
+    fetchAidRequests();
+    fetchMembers();
+  }, []);
+
+  const fetchAidRequests = async () => {
+    try {
+      // This endpoint would need to be implemented in backend
+      const response = await axios.get('/mutual-aid/requests');
+      setAidRequests(response.data);
+    } catch (error) {
+      console.error('Error fetching aid requests:', error);
+      setAidRequests([]); // Set empty array if endpoint doesn't exist yet
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const response = await axios.get('/members');
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/mutual-aid/requests', {
+        ...requestFormData,
+        amount: parseFloat(requestFormData.amount)
+      });
+      setShowRequestForm(false);
+      setRequestFormData({ member_id: '', amount: 0, reason: '' });
+      fetchAidRequests();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al crear solicitud');
+    }
+  };
+
+  const handleContributionSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/mutual-aid/contributions', null, {
+        params: {
+          member_id: contributionFormData.member_id,
+          amount: parseFloat(contributionFormData.amount)
+        }
+      });
+      setShowContributionForm(false);
+      setContributionFormData({ member_id: '', amount: 0 });
+      alert('Aporte registrado exitosamente');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al registrar aporte');
+    }
+  };
+
+  const handleApproval = async (requestId, approved) => {
+    try {
+      if (approved) {
+        await axios.put(`/mutual-aid/requests/${requestId}/approve`);
+      } else {
+        // Rejection endpoint would need to be implemented
+        console.log(`Reject request ${requestId}`);
+      }
+      fetchAidRequests();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al procesar solicitud');
+    }
+  };
+
+  const getMemberName = (memberId) => {
+    const member = members.find(m => m.id === memberId);
+    return member ? `${member.first_name} ${member.last_name}` : 'Desconocido';
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Fondo de Ayuda Mutua</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowContributionForm(!showContributionForm)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+            data-testid="add-contribution-btn"
+          >
+            Registrar Aporte
+          </button>
+          <button
+            onClick={() => setShowRequestForm(!showRequestForm)}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+            data-testid="add-request-btn"
+          >
+            Nueva Solicitud
+          </button>
+        </div>
+      </div>
+
+      {showContributionForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="contribution-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Registrar Aporte Mensual</h2>
+          <form onSubmit={handleContributionSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Socio</label>
+              <select
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                value={contributionFormData.member_id}
+                onChange={(e) => setContributionFormData({...contributionFormData, member_id: e.target.value})}
+              >
+                <option value="">Seleccionar socio...</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.member_number} - {member.first_name} {member.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Monto del Aporte</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                value={contributionFormData.amount}
+                onChange={(e) => setContributionFormData({...contributionFormData, amount: e.target.value})}
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+              >
+                Registrar Aporte
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showRequestForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="request-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Nueva Solicitud de Ayuda</h2>
+          <form onSubmit={handleRequestSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Socio</label>
+              <select
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                value={requestFormData.member_id}
+                onChange={(e) => setRequestFormData({...requestFormData, member_id: e.target.value})}
+              >
+                <option value="">Seleccionar socio...</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.member_number} - {member.first_name} {member.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Monto Solicitado</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                value={requestFormData.amount}
+                onChange={(e) => setRequestFormData({...requestFormData, amount: e.target.value})}
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Motivo de la Solicitud</label>
+              <textarea
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                value={requestFormData.reason}
+                onChange={(e) => setRequestFormData({...requestFormData, reason: e.target.value})}
+                placeholder="Describa el motivo de la solicitud..."
+                rows={3}
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+              >
+                Enviar Solicitud
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Solicitudes de Ayuda</h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="aid-requests-table">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Socio</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Cargando...</td>
+                </tr>
+              ) : aidRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No hay solicitudes registradas</td>
+                </tr>
+              ) : (
+                aidRequests.map((request) => (
+                  <tr key={request.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getMemberName(request.member_id)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${request.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="max-w-xs truncate" title={request.reason}>
+                        {request.reason}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        request.status === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' : 
+                        request.status === 'APROBADA' ? 'bg-green-100 text-green-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(request.requested_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {request.status === 'PENDIENTE' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApproval(request.id, true)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={() => handleApproval(request.id, false)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Security Component
+const Security = () => {
+  const { user } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'CAJERO'
+  });
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      fetchUsers();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const fetchUsers = async () => {
+    try {
+      // This endpoint would need to be implemented
+      const response = await axios.get('/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsers([]); // Set empty for now
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/auth/register', formData);
+      setShowForm(false);
+      setFormData({
+        username: '',
+        email: '',
+        password: '',
+        full_name: '',
+        role: 'CAJERO'
+      });
+      fetchUsers();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al crear usuario');
+    }
+  };
+
+  if (user?.role !== 'ADMIN') {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h1 className="text-xl font-bold text-red-800 mb-2">Acceso Denegado</h1>
+          <p className="text-red-600">Solo los administradores pueden acceder al módulo de seguridad.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Seguridad del Sistema</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+          data-testid="add-user-btn"
+        >
+          {showForm ? 'Cancelar' : 'Nuevo Usuario'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="user-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Crear Nuevo Usuario</h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de Usuario</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                value={formData.username}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                data-testid="user-username-input"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                data-testid="user-email-input"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                value={formData.full_name}
+                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                data-testid="user-fullname-input"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                value={formData.role}
+                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                data-testid="user-role-select"
+              >
+                <option value="CAJERO">Cajero</option>
+                <option value="SUPERVISOR">Supervisor</option>
+                <option value="AUDITOR">Auditor</option>
+                <option value="ADMIN">Administrador</option>
+              </select>
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                data-testid="user-password-input"
+                placeholder="Mínimo 6 caracteres"
+                minLength="6"
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                data-testid="submit-user-btn"
+              >
+                Crear Usuario
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Users Management */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-medium text-gray-900">Gestión de Usuarios</h3>
+          </div>
+          
+          <div className="p-6">
+            {loading ? (
+              <div className="text-center text-gray-500">Cargando usuarios...</div>
+            ) : users.length === 0 ? (
+              <div className="text-center text-gray-500">No hay usuarios para mostrar</div>
+            ) : (
+              <div className="space-y-4">
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{user.full_name}</h4>
+                      <p className="text-sm text-gray-500">@{user.username} • {user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        user.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
+                        user.role === 'SUPERVISOR' ? 'bg-blue-100 text-blue-800' :
+                        user.role === 'AUDITOR' ? 'bg-purple-100 text-purple-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {user.role}
+                      </span>
+                      <span className={`w-2 h-2 rounded-full ${
+                        user.is_active ? 'bg-green-400' : 'bg-red-400'
+                      }`}></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* System Information */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-medium text-gray-900">Información del Sistema</h3>
+          </div>
+          
+          <div className="p-6">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Usuario Actual:</span>
+                <span className="font-medium">{user.full_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Rol:</span>
+                <span className="font-medium">{user.role}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Última Sesión:</span>
+                <span className="font-medium">Ahora</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Versión del Sistema:</span>
+                <span className="font-medium">1.0.0</span>
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-6 border-t">
+              <h4 className="font-medium text-gray-900 mb-3">Permisos de Rol</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>Acceso completo al sistema</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>Gestión de usuarios</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>Configuración del sistema</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Audit Component
+const Audit = () => {
+  const { user } = useAuth();
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    action: '',
+    entity_type: '',
+    date_from: '',
+    date_to: ''
+  });
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN' || user?.role === 'AUDITOR') {
+      fetchAuditLogs();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const fetchAuditLogs = async () => {
+    try {
+      const response = await axios.get('/audit-logs');
+      setAuditLogs(response.data);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      setAuditLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (user?.role !== 'ADMIN' && user?.role !== 'AUDITOR') {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h1 className="text-xl font-bold text-red-800 mb-2">Acceso Denegado</h1>
+          <p className="text-red-600">Solo los administradores y auditores pueden acceder a los logs del sistema.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Auditoría del Sistema</h1>
+        <button
+          onClick={fetchAuditLogs}
+          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+          data-testid="refresh-logs-btn"
+        >
+          Actualizar
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border mb-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Acción</label>
+            <select
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              value={filters.action}
+              onChange={(e) => setFilters({...filters, action: e.target.value})}
+            >
+              <option value="">Todas las acciones</option>
+              <option value="CREATE_MEMBER">Crear Socio</option>
+              <option value="UPDATE_MEMBER">Actualizar Socio</option>
+              <option value="CREATE_ACCOUNT">Crear Cuenta</option>
+              <option value="CREATE_TRANSACTION">Transacción</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Entidad</label>
+            <select
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              value={filters.entity_type}
+              onChange={(e) => setFilters({...filters, entity_type: e.target.value})}
+            >
+              <option value="">Todas las entidades</option>
+              <option value="Member">Socio</option>
+              <option value="Account">Cuenta</option>
+              <option value="Transaction">Transacción</option>
+              <option value="User">Usuario</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
+            <input
+              type="date"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              value={filters.date_from}
+              onChange={(e) => setFilters({...filters, date_from: e.target.value})}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
+            <input
+              type="date"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              value={filters.date_to}
+              onChange={(e) => setFilters({...filters, date_to: e.target.value})}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Audit Logs Table */}
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Registro de Auditoría</h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="audit-logs-table">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entidad</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Cargando logs...</td>
+                </tr>
+              ) : auditLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No hay logs de auditoría</td>
+                </tr>
+              ) : (
+                auditLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(log.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {log.user_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        log.action.includes('CREATE') ? 'bg-green-100 text-green-800' :
+                        log.action.includes('UPDATE') ? 'bg-blue-100 text-blue-800' :
+                        log.action.includes('DELETE') ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {log.entity_type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {log.ip_address}
                     </td>
                   </tr>
                 ))
@@ -532,8 +1752,22 @@ const Layout = ({ children }) => {
     { id: 'mutual-aid', name: 'Fondo Mutua', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }
   ];
 
-  if (user?.role === 'AUDITOR') {
-    navigation.push({ id: 'audit', name: 'Auditoría', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' });
+  // Add Security module only for ADMIN users
+  if (user?.role === 'ADMIN') {
+    navigation.push({
+      id: 'security', 
+      name: 'Seguridad', 
+      icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
+    });
+  }
+
+  // Add Audit module for ADMIN and AUDITOR users
+  if (user?.role === 'ADMIN' || user?.role === 'AUDITOR') {
+    navigation.push({
+      id: 'audit', 
+      name: 'Auditoría', 
+      icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+    });
   }
 
   return (
@@ -597,10 +1831,11 @@ const Layout = ({ children }) => {
         <main className="flex-1" data-testid="app-main-content">
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'members' && <Members />}
-          {activeTab === 'accounts' && <div className="p-6"><h1 className="text-3xl font-bold text-gray-900">Cuentas de Ahorro</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>}
-          {activeTab === 'transactions' && <div className="p-6"><h1 className="text-3xl font-bold text-gray-900">Transacciones</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>}
-          {activeTab === 'mutual-aid' && <div className="p-6"><h1 className="text-3xl font-bold text-gray-900">Fondo de Ayuda Mutua</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>}
-          {activeTab === 'audit' && <div className="p-6"><h1 className="text-3xl font-bold text-gray-900">Auditoría</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>}
+          {activeTab === 'accounts' && <Accounts />}
+          {activeTab === 'transactions' && <Transactions />}
+          {activeTab === 'mutual-aid' && <MutualAid />}
+          {activeTab === 'security' && <Security />}
+          {activeTab === 'audit' && <Audit />}
         </main>
       </div>
     </div>
