@@ -2210,7 +2210,7 @@ const Layout = ({ children }) => {
           {activeTab === 'members' && <Members />}
           {activeTab === 'accounts' && <Accounts />}
           {activeTab === 'transactions' && <Transactions />}
-          {activeTab === 'notifications' && <Notifications />}
+          {activeTab === 'mutual-aid' && <MutualAid />}
           {activeTab === 'notifications' && <Notifications />}
           {activeTab === 'security' && <Security />}
           {activeTab === 'audit' && <Audit />}
