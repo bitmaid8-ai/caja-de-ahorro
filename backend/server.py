@@ -428,7 +428,9 @@ async def create_account(account: AccountCreate, current_user: User = Depends(ge
         AccountType.CORRIENTE: 1000,
         AccountType.PROGRAMADO: 5000,
         AccountType.NAVIDENO: 2000,
-        AccountType.ESCOLAR: 1000
+        AccountType.ESCOLAR: 1000,
+        AccountType.AHORROS: 500,
+        AccountType.FONDO_AYUDA_MUTUA: 100
     }
     
     if account.initial_deposit < minimum_deposits[account.account_type]:
