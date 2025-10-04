@@ -684,6 +684,8 @@ const Accounts = () => {
                 <option value="PROGRAMADO">Programado</option>
                 <option value="NAVIDENO">Navideño</option>
                 <option value="ESCOLAR">Escolar</option>
+                <option value="AHORROS">Ahorros</option>
+                <option value="FONDO_AYUDA_MUTUA">Fondo de Ayuda Mutua</option>
               </select>
             </div>
             
@@ -750,7 +752,14 @@ const Accounts = () => {
                       {getMemberName(account.member_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {account.account_type}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        account.account_type === 'CORRIENTE' ? 'bg-blue-100 text-blue-800' :
+                        account.account_type === 'AHORROS' ? 'bg-green-100 text-green-800' :
+                        account.account_type === 'FONDO_AYUDA_MUTUA' ? 'bg-orange-100 text-orange-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {account.account_type}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${account.balance.toLocaleString()}
@@ -1038,7 +1047,6 @@ const MutualAid = () => {
 
   const fetchAidRequests = async () => {
     try {
-      // This endpoint would need to be implemented in backend
       const response = await axios.get('/mutual-aid/requests');
       setAidRequests(response.data);
     } catch (error) {
@@ -1095,8 +1103,7 @@ const MutualAid = () => {
       if (approved) {
         await axios.put(`/mutual-aid/requests/${requestId}/approve`);
       } else {
-        // Rejection endpoint would need to be implemented
-        console.log(`Reject request ${requestId}`);
+        await axios.put(`/mutual-aid/requests/${requestId}/reject`);
       }
       fetchAidRequests();
     } catch (error) {
@@ -1316,6 +1323,328 @@ const MutualAid = () => {
   );
 };
 
+// Notifications Component
+const Notifications = () => {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showBroadcastForm, setShowBroadcastForm] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [formData, setFormData] = useState({
+    user_id: '',
+    title: '',
+    message: '',
+    notification_type: 'SISTEMA'
+  });
+  const [broadcastData, setBroadcastData] = useState({
+    title: '',
+    message: '',
+    notification_type: 'SISTEMA'
+  });
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+    if (user?.role === 'ADMIN') {
+      fetchUsers();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await axios.get('/notifications');
+      setNotifications(response.data);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get('/notifications/unread-count');
+      setUnreadCount(response.data.unread_count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/notifications', formData);
+      setShowForm(false);
+      setFormData({
+        user_id: '',
+        title: '',
+        message: '',
+        notification_type: 'SISTEMA'
+      });
+      fetchNotifications();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al crear notificación');
+    }
+  };
+
+  const handleBroadcast = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/notifications/broadcast', null, {
+        params: broadcastData
+      });
+      setShowBroadcastForm(false);
+      setBroadcastData({
+        title: '',
+        message: '',
+        notification_type: 'SISTEMA'
+      });
+      alert('Notificación enviada a todos los usuarios');
+      fetchNotifications();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Error al enviar notificación');
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await axios.put(`/notifications/${notificationId}/read`);
+      fetchNotifications();
+      fetchUnreadCount();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const getUserName = (userId) => {
+    const userObj = users.find(u => u.id === userId);
+    return userObj ? userObj.full_name : 'Usuario';
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Notificaciones</h1>
+          {unreadCount > 0 && (
+            <p className="text-sm text-orange-600 mt-1">
+              Tienes {unreadCount} notificación{unreadCount > 1 ? 'es' : ''} sin leer
+            </p>
+          )}
+        </div>
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERVISOR') && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+              data-testid="add-notification-btn"
+            >
+              Nueva Notificación
+            </button>
+            {user?.role === 'ADMIN' && (
+              <button
+                onClick={() => setShowBroadcastForm(!showBroadcastForm)}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                data-testid="broadcast-notification-btn"
+              >
+                Enviar a Todos
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="notification-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Nueva Notificación</h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Usuario Destinatario</label>
+              <select
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.user_id}
+                onChange={(e) => setFormData({...formData, user_id: e.target.value})}
+              >
+                <option value="">Seleccionar usuario...</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name} (@{user.username})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.notification_type}
+                onChange={(e) => setFormData({...formData, notification_type: e.target.value})}
+              >
+                <option value="SISTEMA">Sistema</option>
+                <option value="TRANSACCION">Transacción</option>
+                <option value="ALERTA">Alerta</option>
+                <option value="CUENTA">Cuenta</option>
+                <option value="SOCIO">Socio</option>
+              </select>
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Título</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mensaje</label>
+              <textarea
+                required
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.message}
+                onChange={(e) => setFormData({...formData, message: e.target.value})}
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+              >
+                Enviar Notificación
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showBroadcastForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border mb-6" data-testid="broadcast-form">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Enviar Notificación a Todos los Usuarios</h2>
+          <form onSubmit={handleBroadcast} className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={broadcastData.notification_type}
+                onChange={(e) => setBroadcastData({...broadcastData, notification_type: e.target.value})}
+              >
+                <option value="SISTEMA">Sistema</option>
+                <option value="ALERTA">Alerta</option>
+                <option value="TRANSACCION">Transacción</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Título</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={broadcastData.title}
+                onChange={(e) => setBroadcastData({...broadcastData, title: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mensaje</label>
+              <textarea
+                required
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                value={broadcastData.message}
+                onChange={(e) => setBroadcastData({...broadcastData, message: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <button
+                type="submit"
+                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+              >
+                Enviar a Todos
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-medium text-gray-900">Mis Notificaciones</h3>
+        </div>
+        
+        <div className="divide-y divide-gray-200">
+          {loading ? (
+            <div className="p-6 text-center text-gray-500">Cargando notificaciones...</div>
+          ) : notifications.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">No hay notificaciones</div>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-6 hover:bg-gray-50 transition-colors duration-200 ${
+                  notification.status === 'NO_LEIDA' ? 'bg-blue-50 border-l-4 border-blue-400' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium text-gray-900">{notification.title}</h4>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        notification.notification_type === 'SISTEMA' ? 'bg-gray-100 text-gray-800' :
+                        notification.notification_type === 'ALERTA' ? 'bg-red-100 text-red-800' :
+                        notification.notification_type === 'TRANSACCION' ? 'bg-green-100 text-green-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {notification.notification_type}
+                      </span>
+                      {notification.status === 'NO_LEIDA' && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
+                          Nuevo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-700 mb-2">{notification.message}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {notification.status === 'NO_LEIDA' && (
+                    <button
+                      onClick={() => markAsRead(notification.id)}
+                      className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Marcar como leída
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Security Component
 const Security = () => {
   const { user } = useAuth();
@@ -1340,12 +1669,11 @@ const Security = () => {
 
   const fetchUsers = async () => {
     try {
-      // This endpoint would need to be implemented
       const response = await axios.get('/users');
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setUsers([]); // Set empty for now
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -1488,24 +1816,24 @@ const Security = () => {
             ) : users.length === 0 ? (
               <div className="text-center text-gray-500">No hay usuarios para mostrar</div>
             ) : (
-              <div className="space-y-4">
-                {users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-4" data-testid="users-list">
+                {users.map((userItem) => (
+                  <div key={userItem.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">{user.full_name}</h4>
-                      <p className="text-sm text-gray-500">@{user.username} • {user.email}</p>
+                      <h4 className="font-medium text-gray-900">{userItem.full_name}</h4>
+                      <p className="text-sm text-gray-500">@{userItem.username} • {userItem.email}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
-                        user.role === 'SUPERVISOR' ? 'bg-blue-100 text-blue-800' :
-                        user.role === 'AUDITOR' ? 'bg-purple-100 text-purple-800' :
+                        userItem.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
+                        userItem.role === 'SUPERVISOR' ? 'bg-blue-100 text-blue-800' :
+                        userItem.role === 'AUDITOR' ? 'bg-purple-100 text-purple-800' :
                         'bg-green-100 text-green-800'
                       }`}>
-                        {user.role}
+                        {userItem.role}
                       </span>
                       <span className={`w-2 h-2 rounded-full ${
-                        user.is_active ? 'bg-green-400' : 'bg-red-400'
+                        userItem.is_active ? 'bg-green-400' : 'bg-red-400'
                       }`}></span>
                     </div>
                   </div>
@@ -1539,6 +1867,10 @@ const Security = () => {
                 <span className="text-gray-600">Versión del Sistema:</span>
                 <span className="font-medium">1.0.0</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total Usuarios:</span>
+                <span className="font-medium">{users.length}</span>
+              </div>
             </div>
             
             <div className="mt-6 pt-6 border-t">
@@ -1554,7 +1886,11 @@ const Security = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span>Configuración del sistema</span>
+                  <span>Módulo de seguridad</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>Auditoría del sistema</span>
                 </div>
               </div>
             </div>
@@ -1637,6 +1973,7 @@ const Audit = () => {
               <option value="UPDATE_MEMBER">Actualizar Socio</option>
               <option value="CREATE_ACCOUNT">Crear Cuenta</option>
               <option value="CREATE_TRANSACTION">Transacción</option>
+              <option value="CREATE_USER">Crear Usuario</option>
             </select>
           </div>
           
@@ -1652,6 +1989,7 @@ const Audit = () => {
               <option value="Account">Cuenta</option>
               <option value="Transaction">Transacción</option>
               <option value="User">Usuario</option>
+              <option value="Notification">Notificación</option>
             </select>
           </div>
           
@@ -1710,7 +2048,7 @@ const Audit = () => {
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {log.user_id}
+                      {log.user_id.substring(0, 8)}...
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1743,13 +2081,28 @@ const Audit = () => {
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get('/notifications/unread-count');
+      setUnreadNotifications(response.data.unread_count);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+    }
+  };
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z' },
     { id: 'members', name: 'Socios', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
     { id: 'accounts', name: 'Cuentas', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
     { id: 'transactions', name: 'Transacciones', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-    { id: 'mutual-aid', name: 'Fondo Mutua', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }
+    { id: 'mutual-aid', name: 'Fondo Mutua', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
+    { id: 'notifications', name: 'Notificaciones', icon: 'M15 17h5l-3.5-7.5L12 17zm-3.5-9.5L7 17h5l2.5-9.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z', badge: unreadNotifications }
   ];
 
   // Add Security module only for ADMIN users
@@ -1788,6 +2141,19 @@ const Layout = ({ children }) => {
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Bienvenido, {user?.full_name}</span>
               <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">{user?.role}</span>
+              {unreadNotifications > 0 && (
+                <button
+                  onClick={() => setActiveTab('notifications')}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-3.5-3.5a8.97 8.97 0 001.5-5.5c0-5-4-9-9-9s-9 4-9 9a8.97 8.97 0 001.5 5.5L7 17h5" />
+                  </svg>
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadNotifications}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={logout}
                 className="text-red-600 hover:text-red-700 transition-colors duration-200"
@@ -1808,7 +2174,12 @@ const Layout = ({ children }) => {
               {navigation.map((item) => (
                 <li key={item.id}>
                   <button
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      if (item.id === 'notifications') {
+                        fetchUnreadCount();
+                      }
+                    }}
                     className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors duration-200 ${
                       activeTab === item.id
                         ? 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-500'
@@ -1819,7 +2190,12 @@ const Layout = ({ children }) => {
                     <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
                     </svg>
-                    {item.name}
+                    <span className="flex-1">{item.name}</span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-2">
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -1834,6 +2210,7 @@ const Layout = ({ children }) => {
           {activeTab === 'accounts' && <Accounts />}
           {activeTab === 'transactions' && <Transactions />}
           {activeTab === 'mutual-aid' && <MutualAid />}
+          {activeTab === 'notifications' && <Notifications />}
           {activeTab === 'security' && <Security />}
           {activeTab === 'audit' && <Audit />}
         </main>
