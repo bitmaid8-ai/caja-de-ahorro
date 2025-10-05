@@ -17,8 +17,8 @@ async def create_admin_user():
     client = AsyncIOMotorClient(mongo_url)
     db = client["test_database"]
     
-    # Secret key for password hashing
-    SECRET_KEY = 'your-secret-key-change-in-production'
+    # Secret key for password hashing (same as server.py)
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
     
     # Create new password hash using the same method as server
     password_hash = hashlib.sha256("admin123".encode() + SECRET_KEY.encode()).hexdigest()
